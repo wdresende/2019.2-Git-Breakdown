@@ -16,6 +16,7 @@
 
 ---
 
+
 ## 1. Introdução
 
 A documento a seguir tem como finalidade expor as premissas de desenvolvimento e usabilidade de um produto. O Git Breakdown desponta de uma extensão para navegadores a qual tem como principal propósito ajudar aplicações do GitHub que trabalham com aferição e análise estatística, aplicada ao monitoramento do desempenho de contribuidores envolvidos em um projeto. Esta análise visa expor, compreender e aperfeiçoar todas as fases que compõem a realização de um projeto.
