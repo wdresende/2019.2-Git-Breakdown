@@ -8,6 +8,14 @@ let url_base = 'http://18.215.242.203:3000'
 
 let fetchedData = []
 
+const DATE_UNIX_TIME = (1566691200+86400) // unix time to start the count (segunda da semana 39)
+
+let initWeek = 0
+
+const INIT_WEEKDAY = 1 // monday
+
+const SPRINT_LENGTH = 5 // 5 days - monday to friday
+
 const FETCH_METRICS = 
 [
   'commits', // 0 
@@ -21,6 +29,57 @@ const FETCH_PROFILE =
 [
   'profile'
 ]
+
+async function fetchAPI()
+{
+  let url = 'https://api.github.com/repos/fga-eps-mds/2019.2-git-breakdown/stats/commit_activity'
+  try
+  {
+    return (await fetch(url)).json()
+  }
+  catch (err)
+  {
+    console.log("erro na api commit data")
+    console.log(err)
+  }
+}
+
+/**
+ * Retorna o UNIX TIME do domingo inicial da semana da data inicial que o usuário escolher
+ * @param {*} weekday dia da semana escolhido pelo usuário 0 = domingo, 1 = segunda, ..., 6 = sábado
+ * @param {*} time ao escolher nas configurações o dia inicial, este é transformado em UNIX TIME que é recebido aqui
+ * como paramêtro
+ */
+function getInitUnixTime(weekday, time)
+{
+  // a gnt pega o tempo inicial da data que o usuario escolheu e acha o domingo da sua semana
+  return (weekday === 0? time : (time - (weekday*86400)))
+}
+
+/**
+ * Retorna a posição do vetor do JSON que contém a posição inicial
+ * @param {*} data 
+ * @param {*} initTime 
+ */
+function filterStartingWeek(data, initTime)
+{
+  for (let i = 0; i < data.length; i++)
+  {
+    if (i > 0)
+      console.log(data[i].week - data[i-1].week)
+    if (initTime === undefined && data[i].total > 0)
+      return i // se nenhuma semana inicial é definida, começamos da primeira com commits
+
+    if (data[i].week === initTime)
+      return i
+    else if (data[i].week > initTime)
+    {
+      if (data[i-1].week < initTime) 
+        return (i-1) // se o tempo inicial definido não é de um domingo pegamos do domingo que iniciou a semana
+    }
+  }
+  return 0
+}
 
 async function fetchData(type, aux)
 {
@@ -39,6 +98,16 @@ async function execute(request, aux)
 {
   try {
     const data_ = await Promise.all(FETCH_METRICS.map(type => fetchData(type, aux)))
+
+    const time_info = await fetchAPI()
+    console.log(time_info)
+
+    // se DATE_UNIX_TIME n for domingo, transforma no unix time do domingo daquela semana
+    let initUnixTime = getInitUnixTime(INIT_WEEKDAY, DATE_UNIX_TIME) 
+
+    initWeek = filterStartingWeek(time_info, initUnixTime)
+
+    console.log("initial week is: " + initWeek)
 
     data_[0] = removeDuplicates(data_[0])
     data_[4] = removeDuplicates(data_[4])
