@@ -10,11 +10,11 @@ let fetchedData = []
 
 const DATE_UNIX_TIME = (1566691200+86400) // unix time to start the count (segunda da semana 39)
 
-let initWeek = 0
+const INIT_WEEKDAY = 1 // SEGUNDA
 
-const INIT_WEEKDAY = 1 // monday
+const SPRINT_LENGTH = 7 // 7 DIAS - ou seja sprint começa SEGUNDA e fecha DOMINGO
 
-const SPRINT_LENGTH = 5 // 5 days - monday to friday
+let sprints = []
 
 const FETCH_METRICS = 
 [
@@ -45,7 +45,9 @@ async function fetchAPI()
 }
 
 /**
- * Retorna o UNIX TIME do domingo inicial da semana da data inicial que o usuário escolher
+ * O usuário escolhe uma data para ser a inicial, e esse dia será transformado em UNIX TIME. Porém, como ele pode não ser
+ * um domingo e o JSON começa pelos domingos, essa função faz a conversão pro domingo da semana escolhida.
+ * 
  * @param {*} weekday dia da semana escolhido pelo usuário 0 = domingo, 1 = segunda, ..., 6 = sábado
  * @param {*} time ao escolher nas configurações o dia inicial, este é transformado em UNIX TIME que é recebido aqui
  * como paramêtro
@@ -57,7 +59,8 @@ function getInitUnixTime(weekday, time)
 }
 
 /**
- * Retorna a posição do vetor do JSON que contém a posição inicial
+ * Retorna a posição do vetor do JSON que contém a semana inicial
+ * 
  * @param {*} data 
  * @param {*} initTime 
  */
@@ -65,8 +68,6 @@ function filterStartingWeek(data, initTime)
 {
   for (let i = 0; i < data.length; i++)
   {
-    if (i > 0)
-      console.log(data[i].week - data[i-1].week)
     if (initTime === undefined && data[i].total > 0)
       return i // se nenhuma semana inicial é definida, começamos da primeira com commits
 
@@ -79,6 +80,52 @@ function filterStartingWeek(data, initTime)
     }
   }
   return 0
+}
+
+/**
+ * Pega o total de commits por sprint
+ * 
+ * @param {*} data json
+ * @param {*} initWeek posicao da semana inicial no json
+ * @param {*} weekday dia da semana que começa a sprint
+ * @param {*} sprintLength tamanho da sprint
+ */
+function getSprintTotals(data, initWeek, weekday, sprintLength)
+{
+  let totals = []
+  let t_count = 0
+
+  for (let i = 0; i < data.length - initWeek; i++)
+    totals[i] = 0 // inicializar o vetor com 0
+
+  for (let i = initWeek; i < data.length; i++) // começamos na semana inicial definida
+  {
+    let dayTotals = data[i].days
+    let count = sprintLength
+    for (let j = weekday; j < 7; j++) // para cada dia dessa semana, comecando do dia inicial
+    {
+      totals[t_count] += dayTotals[j] // somamos o total
+      count--; // diminuimos o contador de dias corridos da sprint
+    }
+    if (count !== 0) // se os 7 dias da semana acabou mas a sprint nao acabou, pegamos da proxima sprint
+    {
+      // devemos verificar se existe proxima sprint pelo menos
+      if (i + 1 < data.length)
+      {
+        let k = 0
+        while (count > 0) // enquanto a sprint n acaba
+        {
+          totals[t_count] += data[i+1].days[k] // vamos somando os da proxima semana
+          count--
+          k++
+        }
+      }
+    }
+    // agora que a sprint acabou, passamos pra proxima
+    t_count++
+  }
+
+  return totals
 }
 
 async function fetchData(type, aux)
@@ -99,15 +146,20 @@ async function execute(request, aux)
   try {
     const data_ = await Promise.all(FETCH_METRICS.map(type => fetchData(type, aux)))
 
+
+
+
     const time_info = await fetchAPI()
     console.log(time_info)
-
     // se DATE_UNIX_TIME n for domingo, transforma no unix time do domingo daquela semana
     let initUnixTime = getInitUnixTime(INIT_WEEKDAY, DATE_UNIX_TIME) 
-
-    initWeek = filterStartingWeek(time_info, initUnixTime)
+    let initWeek = filterStartingWeek(time_info, initUnixTime)
 
     console.log("initial week is: " + initWeek)
+
+    let totals = getSprintTotals(time_info, initWeek, INIT_WEEKDAY, SPRINT_LENGTH)
+
+    console.log(totals)
 
     data_[0] = removeDuplicates(data_[0])
     data_[4] = removeDuplicates(data_[4])
